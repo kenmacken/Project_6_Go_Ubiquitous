@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="pinch.sunshinewear">
+    package="pinch.wearable" >
 
     <uses-feature android:name="android.hardware.type.watch" />
 
@@ -13,21 +13,11 @@
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:supportsRtl="true"
-        android:theme="@android:style/Theme.DeviceDefault">
-        <activity
-            android:name=".MainActivity"
-            android:label="@string/app_name">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
-
+        android:theme="@android:style/Theme.DeviceDefault" >
         <service
-            android:name="pinch.wear.MyWatchFace"
+            android:name=".SunshineWatchFace"
             android:label="@string/my_digital_name"
-            android:permission="android.permission.BIND_WALLPAPER">
+            android:permission="android.permission.BIND_WALLPAPER" >
             <meta-data
                 android:name="android.service.wallpaper"
                 android:resource="@xml/watch_face" />
