@@ -127,8 +127,6 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
         float mYOffset;
         float mLineHeight;
         //
-        float mTextXOffsett;
-
         //
         int mInteractiveTimeDigitsColor = Utils.COLOR_VALUE_DEFAULT_AND_AMBIENT_TIME_DIGITS;
 
@@ -149,9 +147,8 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
                     .setAcceptsTapEvents(true)
                     .build());
             Resources resources = SunshineWatchFace.this.getResources();
-            mYOffset = resources.getDimension(R.dimen.digital_y_offset);
-
             mLineHeight = resources.getDimension(R.dimen.digital_line_height);
+            mYOffset = resources.getDimension(R.dimen.digital_y_offset);
 
             mBackgroundPaint = new Paint();
             mBackgroundPaint.setColor(resources.getColor(R.color.background));
@@ -165,8 +162,8 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
 
             mCalendar = Calendar.getInstance();
             mDate = new Date();
-
             mTime = new Time();
+            //
             //mWeatherIcon = BitmapFactory.decodeResource(getResources(), R.mipmap.ic_launcher);
             mWeatherIcon = null;
             initFormats();
@@ -192,7 +189,6 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
 
             if (visible) {
                 registerReceiver();
-
                 // Update time zone in case it changed while we weren't visible.
                 mTime.clear(TimeZone.getDefault().getID());
                 mTime.setToNow();
@@ -233,26 +229,24 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
         @Override
         public void onApplyWindowInsets(WindowInsets insets) {
             super.onApplyWindowInsets(insets);
-
+            //
             // Load resources that have alternate values for round watches.
             Resources resources = SunshineWatchFace.this.getResources();
             boolean isRound = insets.isRound();
-            mXOffset = resources.getDimension(isRound
-                    ? R.dimen.digital_x_offset_round : R.dimen.digital_x_offset);
-            //float timeTextSize = resources.getDimension(isRound ? R.dimen.digital_text_size_round : R.dimen.digital_text_size);
             float timeTextSize, dateTextSize, tempTextSize;
             if(isRound) {
+                mXOffset = R.dimen.digital_x_offset_round;
                 timeTextSize = resources.getDimension(R.dimen.digital_text_size_round);
                 dateTextSize = resources.getDimension(R.dimen.digital_text_size_date_round);
                 tempTextSize = resources.getDimension(R.dimen.digital_text_size_temp_round);
             } else {
                 timeTextSize = resources.getDimension(R.dimen.digital_text_size);
+                mXOffset = R.dimen.digital_text_size;
                 dateTextSize = resources.getDimension(R.dimen.digital_text_size_date);
                 tempTextSize = resources.getDimension(R.dimen.digital_text_size_temp);
             }
-
-            mTimePaint.setTextSize(timeTextSize);
             //
+            mTimePaint.setTextSize(timeTextSize);
             mDatePaint.setTextSize(dateTextSize);
             mMinTempPaint.setTextSize(tempTextSize);
             mMaxTempPaint.setTextSize(tempTextSize);
@@ -283,9 +277,10 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
                 if (mLowBitAmbient) {
                     mTimePaint.setAntiAlias(!inAmbientMode);
                     //
-                    mDatePaint.setAntiAlias(!inAmbientMode);
+                    // Not needed any more as only the dat is shown in ambient mode now
+                    /*mDatePaint.setAntiAlias(!inAmbientMode);
                     mMinTempPaint.setAntiAlias(!inAmbientMode);
-                    mMaxTempPaint.setAntiAlias(!inAmbientMode);
+                    mMaxTempPaint.setAntiAlias(!inAmbientMode);*/
                 }
                 invalidate();
             }
@@ -316,6 +311,7 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
                 case TAP_TYPE_TAP:
                     // The user has completed the tap gesture.
                     mTapCount++;
+                    Log.d(TAG, "User tapped the screen " + mTapCount);
                     mBackgroundPaint.setColor(resources.getColor(mTapCount % 2 == 0 ?
                             R.color.background : R.color.background2));
                     break;
@@ -325,11 +321,11 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
 
         @Override
         public void onDraw(Canvas canvas, Rect bounds) {
-
+            //
             long now = System.currentTimeMillis();
             mCalendar.setTimeInMillis(now);
             mDate.setTime(now);
-
+            //
             int width = bounds.width();
             int height = bounds.height();
             float centerX = width / 2f;
@@ -375,6 +371,8 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
                 canvas.drawText(maxTempString, maxTempPosition, 60 + mYOffset + 40, mMaxTempPaint);
                 canvas.drawText(minTempString, minTempPosition, 60 + mYOffset + 40, mMinTempPaint);
             } else {
+                //
+                //Set time location for ambient mode
                 canvas.drawText(text, centerX - (mTimePaint.measureText(text) / 2), centerY + (mLineHeight/2), mTimePaint);
             }
         }
