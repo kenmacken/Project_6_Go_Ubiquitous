@@ -34,17 +34,25 @@ import android.os.Message;
 import android.support.wearable.watchface.CanvasWatchFaceService;
 import android.support.wearable.watchface.WatchFaceStyle;
 import android.text.format.Time;
+import android.util.Log;
 import android.view.SurfaceHolder;
 import android.view.WindowInsets;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.wearable.DataApi;
+import com.google.android.gms.wearable.DataEvent;
 import com.google.android.gms.wearable.DataEventBuffer;
+import com.google.android.gms.wearable.DataItem;
 import com.google.android.gms.wearable.DataMap;
+import com.google.android.gms.wearable.DataMapItem;
 import com.google.android.gms.wearable.Wearable;
 
 import java.lang.ref.WeakReference;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.Locale;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
@@ -74,11 +82,12 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
 
     private class Engine extends CanvasWatchFaceService.Engine implements DataApi.DataListener, GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener {
 
+        private static final String TAG = "SunshineWatchFace";
         final Handler mUpdateTimeHandler = new EngineHandler(this);
 
         private Bitmap mWeatherIcon;
-        private String mWeatherMaxTemp = "20";
-        private String mWeatherMinTemp = "10";
+        private String mWeatherMaxTemp = "";
+        private String mWeatherMinTemp = "";
 
         static final String KEY_PATH = "/weather";
         static final String KEY_WEATHER_ID = "key_weather_id";
@@ -101,13 +110,18 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
         boolean mRegisteredTimeZoneReceiver = false;
 
         Paint mBackgroundPaint;
-        Paint mTextPaint;
+        Paint mTimePaint;
         //
-        Paint mHourPaint, mMinutePaint, mColonPaint, mDatePaint, mMinTempPaint, mMaxTempPaint;
+        Paint mDatePaint, mMinTempPaint, mMaxTempPaint;
 
         boolean mAmbient;
         Time mTime;
         int mTapCount;
+
+        Calendar mCalendar;
+        Date mDate;
+        SimpleDateFormat mDayOfWeek;
+        java.text.DateFormat mDateFormat;
 
         float mXOffset;
         float mYOffset;
@@ -116,8 +130,7 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
         float mTextXOffsett;
 
         //
-        int mInteractiveHourDigitsColor = Utils.COLOR_VALUE_DEFAULT_AND_AMBIENT_HOUR_DIGITS;
-        int mInteractiveMinuteDigitsColor = Utils.COLOR_VALUE_DEFAULT_AND_AMBIENT_MINUTE_DIGITS;
+        int mInteractiveTimeDigitsColor = Utils.COLOR_VALUE_DEFAULT_AND_AMBIENT_TIME_DIGITS;
 
         /**
          * Whether the display supports fewer bits for each color in ambient mode. When true, we
@@ -143,17 +156,20 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
             mBackgroundPaint = new Paint();
             mBackgroundPaint.setColor(resources.getColor(R.color.background));
 
-            mTextPaint = new Paint();
-            mTextPaint = createTextPaint(resources.getColor(R.color.digital_text));
+            mTimePaint = new Paint();
+            mTimePaint = createTextPaint(resources.getColor(R.color.digital_text));
             //
-            mHourPaint = createTextPaint(resources.getColor(R.color.digital_text));
-            mColonPaint = createTextPaint(resources.getColor(R.color.digital_text));
-            mMinutePaint = createTextPaint(resources.getColor(R.color.digital_text_light));
             mDatePaint = createTextPaint(resources.getColor(R.color.digital_text_light));
             mMinTempPaint = createTextPaint(resources.getColor(R.color.digital_text_light));
             mMaxTempPaint = createTextPaint(resources.getColor(R.color.digital_text_light));
 
+            mCalendar = Calendar.getInstance();
+            mDate = new Date();
+
             mTime = new Time();
+            //mWeatherIcon = BitmapFactory.decodeResource(getResources(), R.mipmap.ic_launcher);
+            mWeatherIcon = null;
+            initFormats();
         }
 
         @Override
@@ -187,6 +203,14 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
             // Whether the timer should be running depends on whether we're visible (as well as
             // whether we're in ambient mode), so we may need to start or stop the timer.
             updateTimer();
+        }
+
+        private void initFormats() {
+            mDayOfWeek = new SimpleDateFormat("EEE", Locale.getDefault());
+            mDayOfWeek.setCalendar(mCalendar);
+
+            mDateFormat = new SimpleDateFormat("MMM d yyyy", Locale.getDefault());
+            mDateFormat.setCalendar(mCalendar);
         }
 
         private void registerReceiver() {
@@ -227,11 +251,8 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
                 tempTextSize = resources.getDimension(R.dimen.digital_text_size_temp);
             }
 
-            mTextPaint.setTextSize(timeTextSize);
+            mTimePaint.setTextSize(timeTextSize);
             //
-            mHourPaint.setTextSize(timeTextSize);
-            mColonPaint.setTextSize(timeTextSize);
-            mMinutePaint.setTextSize(timeTextSize);
             mDatePaint.setTextSize(dateTextSize);
             mMinTempPaint.setTextSize(tempTextSize);
             mMaxTempPaint.setTextSize(tempTextSize);
@@ -253,24 +274,15 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
         public void onAmbientModeChanged(boolean inAmbientMode) {
             super.onAmbientModeChanged(inAmbientMode);
 
-            adjustPaintColorToCurrentMode(mTextPaint, mInteractiveHourDigitsColor, Utils.COLOR_VALUE_DEFAULT_AND_AMBIENT_HOUR_DIGITS);
+            adjustPaintColorToCurrentMode(mTimePaint, mInteractiveTimeDigitsColor, Utils.COLOR_VALUE_DEFAULT_AND_AMBIENT_TIME_DIGITS);
             //
-            adjustPaintColorToCurrentMode(mHourPaint, mInteractiveHourDigitsColor, Utils.COLOR_VALUE_DEFAULT_AND_AMBIENT_HOUR_DIGITS);
-            adjustPaintColorToCurrentMode(mMinutePaint, mInteractiveMinuteDigitsColor, Utils.COLOR_VALUE_DEFAULT_AND_AMBIENT_MINUTE_DIGITS);
-            //
-            adjustPaintColorToCurrentMode(mDatePaint, mInteractiveHourDigitsColor, Utils.COLOR_VALUE_DEFAULT_AND_AMBIENT_HOUR_DIGITS);
-            adjustPaintColorToCurrentMode(mMaxTempPaint, mInteractiveHourDigitsColor, Utils.COLOR_VALUE_DEFAULT_AND_AMBIENT_HOUR_DIGITS);
-            adjustPaintColorToCurrentMode(mMinTempPaint, mInteractiveHourDigitsColor, Utils.COLOR_VALUE_DEFAULT_AND_AMBIENT_HOUR_DIGITS);
 
             if (mAmbient != inAmbientMode) {
                 mAmbient = inAmbientMode;
 
                 if (mLowBitAmbient) {
-                    mTextPaint.setAntiAlias(!inAmbientMode);
+                    mTimePaint.setAntiAlias(!inAmbientMode);
                     //
-                    mHourPaint.setAntiAlias(!inAmbientMode);
-                    mColonPaint.setAntiAlias(!inAmbientMode);
-                    mMinutePaint.setAntiAlias(!inAmbientMode);
                     mDatePaint.setAntiAlias(!inAmbientMode);
                     mMinTempPaint.setAntiAlias(!inAmbientMode);
                     mMaxTempPaint.setAntiAlias(!inAmbientMode);
@@ -314,6 +326,10 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
         @Override
         public void onDraw(Canvas canvas, Rect bounds) {
 
+            long now = System.currentTimeMillis();
+            mCalendar.setTimeInMillis(now);
+            mDate.setTime(now);
+
             int width = bounds.width();
             int height = bounds.height();
             float centerX = width / 2f;
@@ -329,32 +345,37 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
             // Draw H:MM in ambient mode or H:MM:SS in interactive mode.
             mTime.setToNow();
             String text = String.format("%d:%02d", mTime.hour, mTime.minute);
-            canvas.drawText(text, centerX - (mTextPaint.measureText(text) / 2), mYOffset, mTextPaint);
-
+            //
             if(!isInAmbientMode()) {
                 //
+                //Time
+                canvas.drawText(text, centerX - (mTimePaint.measureText(text) / 2), mYOffset, mTimePaint);
+                //
                 // Date
-                String dateString = "Fri, Jul 14 2015";
+                //String dateString = "Fri, Jul 14 2015";
+                String dateString = mDayOfWeek.format(mDate) + ", " + mDateFormat.format(mDate);
                 float datePosition = centerX - (mDatePaint.measureText(dateString) / 2);
                 canvas.drawText(dateString, datePosition, mYOffset + mLineHeight, mDatePaint);
 
                 //
                 //for weather icon
                 //
-                int weatherId = 800;
-                mWeatherIcon = BitmapFactory.decodeResource(getResources(), Utils.getIconsWeatherCondition(weatherId));
+                //int weatherId = 800;
+                //mWeatherIcon = BitmapFactory.decodeResource(getResources(), Utils.getIconsWeatherCondition(weatherId));
                 //
-                Bitmap resizedBitmap = Bitmap.createScaledBitmap(mWeatherIcon, 40, 40, true);
                 String maxTempString = mWeatherMaxTemp + "\u00b0 / ";
                 String minTempString = mWeatherMinTemp + "\u00b0";
-                float imgPosition = centerX - resizedBitmap.getWidth() - mMinTempPaint.measureText(minTempString) / 2 - 15;
+                if(mWeatherIcon != null) {
+                    Bitmap resizedBitmap = Bitmap.createScaledBitmap(mWeatherIcon, 40, 40, true);
+                    float imgPosition = centerX - resizedBitmap.getWidth() - mMinTempPaint.measureText(minTempString) / 2 - 15;
+                    canvas.drawBitmap(resizedBitmap, imgPosition, mYOffset + 70, new Paint());
+                }
                 float maxTempPosition = centerX - mMaxTempPaint.measureText(maxTempString) / 2;
                 float minTempPosition = centerX + mMaxTempPaint.measureText(maxTempString) / 2 + 5;
-                canvas.drawBitmap(resizedBitmap, imgPosition, mYOffset + 70, new Paint());
-
                 canvas.drawText(maxTempString, maxTempPosition, 60 + mYOffset + 40, mMaxTempPaint);
-
                 canvas.drawText(minTempString, minTempPosition, 60 + mYOffset + 40, mMinTempPaint);
+            } else {
+                canvas.drawText(text, centerX - (mTimePaint.measureText(text) / 2), centerY + (mLineHeight/2), mTimePaint);
             }
         }
 
@@ -384,9 +405,7 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
 
         private void setValuesForMissing(DataMap config) {
             addIntKeyIfMissing(config, Utils.BACKGROUND_COLOR, getResources().getColor(R.color.blue));
-            addIntKeyIfMissing(config, Utils.HOURS_COLOR, Utils.COLOR_VALUE_DEFAULT_AND_AMBIENT_HOUR_DIGITS);
-            addIntKeyIfMissing(config, Utils.MINUTES_COLOR, Utils.COLOR_VALUE_DEFAULT_AND_AMBIENT_MINUTE_DIGITS);
-            addIntKeyIfMissing(config, Utils.SECONDS_COLOR, Utils.COLOR_VALUE_DEFAULT_AND_AMBIENT_SECOND_DIGITS);
+            addIntKeyIfMissing(config, Utils.TIME_COLOR, Utils.COLOR_VALUE_DEFAULT_AND_AMBIENT_TIME_DIGITS);
         }
 
         private void addIntKeyIfMissing(DataMap config, String key, int color) {
@@ -418,7 +437,23 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
 
         @Override
         public void onDataChanged(DataEventBuffer dataEventBuffer) {
-
+            Log.d(TAG, "onDataChanged");
+            for (DataEvent dataEvent : dataEventBuffer) {
+                DataItem dataItem = dataEvent.getDataItem();
+                if (dataEvent.getType() != DataEvent.TYPE_CHANGED) {
+                    if (dataItem.getUri().getPath().equals(KEY_PATH)) {
+                        DataMap dataMap = DataMapItem.fromDataItem(dataItem).getDataMap();
+                        int weatherId = dataMap.getInt(KEY_WEATHER_ID);
+                        Log.d(TAG, "Weather id: " + weatherId);
+                        if (weatherId != 0) {
+                                mWeatherIcon = BitmapFactory.decodeResource(getResources(),
+                                        Utils.getIconsWeatherCondition(weatherId));
+                        }
+                        mWeatherMaxTemp = dataMap.getString(KEY_MAX_TEMP);
+                        mWeatherMinTemp = dataMap.getString(KEY_MIN_TEMP);
+                    }
+                }
+            }
         }
 
         @Override

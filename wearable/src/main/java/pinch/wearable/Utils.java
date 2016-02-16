@@ -22,19 +22,12 @@ public class Utils {
     private static final String TAG = "Utils";
 
     public static final String BACKGROUND_COLOR = "BACKGROUND_COLOR";
-    public static final String HOURS_COLOR = "HOURS_COLOR";
-    public static final String MINUTES_COLOR = "MINUTES_COLOR";
-    public static final String SECONDS_COLOR = "SECONDS_COLOR";
+    public static final String TIME_COLOR = "TIME_COLOR";
+    //
     public static final String PATH_WITH_FEATURE = "/watch_face_config/Digital";
 
-    public static final String COLOR_NAME_DEFAULT_AND_AMBIENT_HOUR_DIGITS = "White";
-    public static final int COLOR_VALUE_DEFAULT_AND_AMBIENT_HOUR_DIGITS = parseColor(COLOR_NAME_DEFAULT_AND_AMBIENT_HOUR_DIGITS);
-
-    public static final String COLOR_NAME_DEFAULT_AND_AMBIENT_MINUTE_DIGITS = "White";
-    public static final int COLOR_VALUE_DEFAULT_AND_AMBIENT_MINUTE_DIGITS = parseColor(COLOR_NAME_DEFAULT_AND_AMBIENT_MINUTE_DIGITS);
-
-    public static final String COLOR_NAME_DEFAULT_AND_AMBIENT_SECOND_DIGITS = "White";
-    public static final int COLOR_VALUE_DEFAULT_AND_AMBIENT_SECOND_DIGITS = parseColor(COLOR_NAME_DEFAULT_AND_AMBIENT_SECOND_DIGITS);
+    public static final String COLOR_NAME_DEFAULT_AND_AMBIENT_TIME_DIGITS = "White";
+    public static final int COLOR_VALUE_DEFAULT_AND_AMBIENT_TIME_DIGITS = parseColor(COLOR_NAME_DEFAULT_AND_AMBIENT_TIME_DIGITS);
 
     private static int parseColor(String colorName) {
         return Color.parseColor(colorName.toLowerCase());
