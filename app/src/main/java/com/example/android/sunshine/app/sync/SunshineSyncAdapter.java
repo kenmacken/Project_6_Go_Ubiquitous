@@ -36,6 +36,14 @@ import com.example.android.sunshine.app.R;
 import com.example.android.sunshine.app.Utility;
 import com.example.android.sunshine.app.data.WeatherContract;
 import com.example.android.sunshine.app.muzei.WeatherMuzeiSource;
+import com.google.android.gms.common.ConnectionResult;
+import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.common.api.PendingResult;
+import com.google.android.gms.common.api.ResultCallback;
+import com.google.android.gms.wearable.DataApi;
+import com.google.android.gms.wearable.PutDataMapRequest;
+import com.google.android.gms.wearable.PutDataRequest;
+import com.google.android.gms.wearable.Wearable;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -87,6 +95,16 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter {
     public static final int LOCATION_STATUS_UNKNOWN = 3;
     public static final int LOCATION_STATUS_INVALID = 4;
 
+    public static final String ACTION_SEND_WEAR_DATA = "com.example.android.sunshine.app.ACTION_SEND_WEAR_DATA";
+
+    private static final String PATH = "/weather";
+    private static final String KEY_WEATHER_ID = "key_weather_id";
+    private static final String KEY_MAX_TEMP = "key_max_temp";
+    private static final String KEY_MIN_TEMP = "key_min_temp";
+
+    private GoogleApiClient mGoogleApiClient;
+    private PutDataMapRequest mRequestMap;
+
     public SunshineSyncAdapter(Context context, boolean autoInitialize) {
         super(context, autoInitialize);
     }
@@ -113,6 +131,25 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter {
         String format = "json";
         String units = "metric";
         int numDays = 14;
+
+        mGoogleApiClient = new GoogleApiClient.Builder(getContext())
+                .addConnectionCallbacks(new GoogleApiClient.ConnectionCallbacks() {
+                    @Override
+                    public void onConnected(Bundle bundle) {
+                        Log.d("WearPush", "onConnected App");
+                    }
+
+                    @Override
+                    public void onConnectionSuspended(int i) {
+                    }})
+                .addOnConnectionFailedListener(new GoogleApiClient.OnConnectionFailedListener() {
+                    @Override
+                    public void onConnectionFailed(ConnectionResult connectionResult) {
+                    }
+                })
+                .addApi(Wearable.API) // tell Google API that we want to use Warable API
+                .build();
+        mGoogleApiClient.connect();
 
         try {
             // Construct the URL for the OpenWeatherMap query
@@ -352,6 +389,26 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter {
                 weatherValues.put(WeatherContract.WeatherEntry.COLUMN_WEATHER_ID, weatherId);
 
                 cVVector.add(weatherValues);
+
+                if (i == 0) {
+                    mRequestMap = PutDataMapRequest.create(PATH);
+                    mRequestMap.getDataMap().putInt(KEY_WEATHER_ID, weatherId);
+                    mRequestMap.getDataMap().putString(KEY_MAX_TEMP, String.valueOf(high) );
+                    mRequestMap.getDataMap().putString(KEY_MIN_TEMP, String.valueOf(low));
+                    mRequestMap.getDataMap().putInt("timestamp", (int)System.nanoTime() + 1);
+                    Log.d("WearPush", "weatherId: " + weatherId + " maxTemp: " + high + " minTemp: " + low);
+
+                    PutDataRequest request = mRequestMap.asPutDataRequest().setUrgent();
+                    PendingResult<DataApi.DataItemResult> pendingResult = Wearable.DataApi.putDataItem(mGoogleApiClient,request);
+                    pendingResult.setResultCallback(new ResultCallback<DataApi.DataItemResult>() {
+                        @Override
+                        public void onResult(DataApi.DataItemResult dataItemResult) {
+                            if(dataItemResult.getStatus().isSuccess()) {
+                                Log.d("WearPush", "Data item set: " + dataItemResult.getDataItem().getUri());
+                            }
+                        }
+                    });
+                }
             }
 
             int inserted = 0;
